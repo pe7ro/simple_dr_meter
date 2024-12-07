@@ -32,7 +32,11 @@ class LogGroup(NamedTuple):
 
 
 def get_group_title(group: LogGroup):
-    return f'{", ".join(group.performers)} — {", ".join(group.albums)}'
+    p = set(group.performers) - {None}
+    p = ", ".join(p) if len(p) > 0 else 'None'
+    a = set(group.albums) - {None}
+    a = ", ".join(a) if len(a) > 0 else 'None'
+    return f'{p} — {a}'
 
 
 def format_time(seconds):
@@ -91,11 +95,13 @@ def make_log_groups(l: Iterable[Tuple[AudioSourceInfo, Iterable[Tuple[int, float
 
 def parse_args():
     ap = argparse.ArgumentParser()
-    ap.add_argument("input", help='Input file or directory')
-    ap.add_argument("--no-log", help='Do not write log (dr.txt), by default a log file is written after analysis',
+    ap.add_argument("input", help='input file or directory')
+    ap.add_argument("--no-log", help='do not write log (dr.txt), by default a log file is written after analysis',
                     action='store_true')
-    ap.add_argument("--keep-precision", help='Do not round values, this also disables log', action='store_true')
-    ap.add_argument("--no-resample", help='Do not resample everything to 44.1kHz (unlike the "standard" meter), '
+    ap.add_argument("--keep-precision", help='do not round values, this also disables log', action='store_true')
+    ap.add_argument("--overwrite", help='computes and writes the log even if the dr file already exists',
+                    action='store_true')
+    ap.add_argument("--no-resample", help='do not resample everything to 44.1kHz (unlike the "standard" meter), '
                                           'this also disables log',
                     action='store_true')
     args = sys.argv[1:]
@@ -123,7 +129,7 @@ def main():
 
     if should_write_log:
         log_path = get_log_path(input_path)
-        if os.path.exists(log_path):
+        if os.path.exists(log_path) and not args.overwrite:
             sys.exit('the log file already exists!')
 
     def track_cb(track_info: TrackInfo, dr):
@@ -141,7 +147,7 @@ def main():
     if should_write_log:
         # noinspection PyUnboundLocalVariable
         print(f'writing log to {log_path}')
-        with open(log_path, mode='x', encoding='utf8') as f:
+        with open(log_path, mode='x' if not args.overwrite else 'w', encoding='utf8') as f:
             write_log(f.write, dr_log_items, dr_mean)
         print('…done')
     else:
